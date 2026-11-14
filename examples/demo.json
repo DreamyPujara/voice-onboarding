@@ -1,0 +1,15 @@
+{
+  "assumptions": {
+    "description": "Synthetic comparison of two voice-first onboarding drafts; not user research.",
+    "flows": ["guided", "fast"],
+    "terminal_events": ["complete", "dropoff"]
+  },
+  "events": [
+    {"participant": "p1", "flow": "guided", "event": "start", "ts": "2026-01-01T09:00:00Z"},
+    {"participant": "p1", "flow": "guided", "event": "complete", "ts": "2026-01-01T09:04:30Z"},
+    {"participant": "p2", "flow": "guided", "event": "start", "ts": "2026-01-01T09:01:00Z"},
+    {"participant": "p2", "flow": "guided", "event": "dropoff", "ts": "2026-01-01T09:03:00Z"},
+    {"participant": "p3", "flow": "fast", "event": "start", "ts": "2026-01-01T09:02:00Z"},
+    {"participant": "p3", "flow": "fast", "event": "complete", "ts": "2026-01-01T09:03:15Z"}
+  ]
+}

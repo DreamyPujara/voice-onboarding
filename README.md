@@ -16,7 +16,7 @@ python -m unittest discover
 
 ## Input shape
 
-JSON contains `assumptions` and `events`. Each event needs `participant`, `flow`, `event`, and ISO `ts`. Supported events are `start`, `complete`, and `dropoff` by default.
+JSON contains `assumptions` and `events`. Each event needs `participant`, `flow`, `event`, and ISO `ts`. Supported events are `start`, `complete`, and `dropoff` by default. Malformed objects, empty event lists, invalid assumptions, missing fields, and unsupported event names return explicit validation errors.
 
 ## Metrics
 
@@ -26,7 +26,7 @@ Per flow the CLI reports:
 - completion and dropoff rates
 - median time-to-completion in minutes
 
-Invalid inputs return exit code `2` and list validation errors.
+Invalid inputs return exit code `2` and list validation errors. Naive ISO timestamps are treated as UTC so old fixture files remain usable; include `Z` or an offset for clarity.
 
 ## Tradeoffs and non-goals
 

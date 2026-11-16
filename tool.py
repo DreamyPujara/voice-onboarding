@@ -26,9 +26,12 @@ def parse_ts(value):
     if not isinstance(value, str):
         raise ValueError("timestamp must be a string")
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError(f"invalid timestamp {value!r}") from exc
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 def load_data(path):
@@ -39,18 +42,43 @@ def load_data(path):
 
 
 def validate(data):
+    if not isinstance(data, dict):
+        return ["input must be a JSON object with assumptions and events"]
     assumptions = data.get("assumptions", {})
-    flows = set(assumptions.get("flows", []))
-    terminals = set(assumptions.get("terminal_events", ["complete", "dropoff"]))
-    errors, by_person = [], {}
+    if assumptions is None:
+        assumptions = {}
+    if not isinstance(assumptions, dict):
+        return ["assumptions must be an object"]
+    flows_raw = assumptions.get("flows", [])
+    terminals_raw = assumptions.get("terminal_events", ["complete", "dropoff"])
+    errors = []
+    if not isinstance(flows_raw, list) or any(not isinstance(f, str) or not f for f in flows_raw):
+        errors.append("assumptions.flows must be a list of non-empty strings")
+        flows = set()
+    else:
+        flows = set(flows_raw)
+    if not isinstance(terminals_raw, list) or any(not isinstance(t, str) or not t for t in terminals_raw):
+        errors.append("assumptions.terminal_events must be a list of non-empty strings")
+        terminals = {"complete", "dropoff"}
+    else:
+        terminals = set(terminals_raw)
     events = data.get("events")
     if not isinstance(events, list):
-        return ["events must be a list"]
+        return errors + ["events must be a list"]
+    if not events:
+        return errors + ["events must contain at least one event"]
+    by_person = {}
     for i, ev in enumerate(events):
+        if not isinstance(ev, dict):
+            errors.append(f"event {i} must be an object")
+            continue
         missing = REQUIRED - set(ev)
         if missing:
             errors.append(f"event {i} missing {', '.join(sorted(missing))}")
             continue
+        for field in ("participant", "flow", "event"):
+            if not isinstance(ev[field], str) or not ev[field]:
+                errors.append(f"event {i} field {field} must be a non-empty string")
         if flows and ev["flow"] not in flows:
             errors.append(f"event {i} has unknown flow {ev['flow']!r}")
         if ev["event"] not in ({"start"} | terminals):
@@ -60,12 +88,13 @@ def validate(data):
         except ValueError as exc:
             errors.append(f"event {i} {exc}")
             continue
-        by_person.setdefault((ev["participant"], ev["flow"]), []).append((ts, ev["event"], i))
+        if all(isinstance(ev[f], str) and ev[f] for f in ("participant", "flow", "event")):
+            by_person.setdefault((ev["participant"], ev["flow"]), []).append((ts, i, ev["event"]))
     for key, rows in by_person.items():
-        rows.sort()
+        rows.sort(key=lambda row: (row[0], row[1]))
         seen_start = False
         terminal_count = 0
-        for ts, name, idx in rows:
+        for ts, idx, name in rows:
             if name == "start":
                 if seen_start:
                     errors.append(f"event {idx} repeats start for {key[0]} in {key[1]}")
